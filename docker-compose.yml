@@ -1,0 +1,13 @@
+version: '3'
+services:
+  gcp-spot-poller:
+    container_name: gcp-spot-poller
+    build:
+      context: gcp-spot-poller
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - POLLING_RATE=60
+    env_file:
+      - .env
+    volumes:
+      - ./credentials.json:/app/credentials.json
