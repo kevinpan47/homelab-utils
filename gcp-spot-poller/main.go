@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/smtp"
 	"os"
 	"os/signal"
 	"strconv"
@@ -25,6 +26,16 @@ func main() {
 		pollingRate = 60
 	}
 
+	smtpSender := os.Getenv("SMTP_SENDER")
+	smtpReceiver := os.Getenv("SMTP_RECEIVER")
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+	smtpServer := os.Getenv("SMTP_SERVER")
+	smtpPort, err := strconv.Atoi(os.Getenv("SMTP_PORT"))
+
+	if err != nil {
+		smtpPort = 587
+	}
+
 	ticker := time.NewTicker(time.Duration(pollingRate) * time.Second)
 	ctx := context.Background()
 
@@ -33,6 +44,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
+
+	notify := false
 
 	fmt.Printf("Polling %s every %d seconds.\n", instanceName, pollingRate)
 	go func() {
@@ -55,9 +68,33 @@ func main() {
 					_, err = client.ZoneOperations.Wait(projectID, zone, op.Name).Context(ctx).Do()
 					if err != nil {
 						log.Fatalf("Failed to wait for operation: %v", err)
+					} else {
+						notify = true
 					}
 				} else {
-					fmt.Printf("Instance %s is running.\n", instanceName)
+					// Get the instance's public IP address.
+					var publicIPAddress string = ""
+					for _, iface := range instance.NetworkInterfaces {
+						if iface.AccessConfigs != nil && len(iface.AccessConfigs) > 0 {
+							publicIPAddress = iface.AccessConfigs[0].NatIP
+							break
+						}
+					}
+
+					fmt.Printf("Instance %s is running at %s\n", instanceName, publicIPAddress)
+
+					if notify {
+						err := sendEmail(
+							smtpSender, smtpPassword, smtpReceiver,
+							"GCP Proxy server NEW IP", publicIPAddress,
+							smtpServer, smtpPort)
+
+						if err != nil {
+							log.Fatalf("Failed to send email notification: %v", err)
+						} else {
+							notify = false
+						}
+					}
 				}
 			}
 		}
@@ -73,4 +110,21 @@ func main() {
 		ticker.Stop()
 		fmt.Println("Interrupt signal received. Exiting...")
 	}
+}
+
+func sendEmail(from, password, to, subject, body, smtpServer string, smtpPort int) error {
+	// Set up the authentication information.
+	auth := smtp.PlainAuth("", from, password, smtpServer)
+
+	// Set up the email message.
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, to, subject, body)
+
+	// Send the email.
+	err := smtp.SendMail(fmt.Sprintf("%s:%d", smtpServer, smtpPort), auth, from, []string{to}, []byte(msg))
+	if err != nil {
+		fmt.Printf("Notification sent to %s", to)
+		return err
+	}
+
+	return nil
 }
