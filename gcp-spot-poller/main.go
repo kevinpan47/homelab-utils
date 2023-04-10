@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags)
+
 	// Replace these values with your own
 	projectID := os.Getenv("PROJECT_ID")
 	zone := os.Getenv("ZONE")
@@ -47,7 +49,7 @@ func main() {
 
 	notify := false
 
-	fmt.Printf("Polling %s every %d seconds.\n", instanceName, pollingRate)
+	log.Printf("Polling %s every %d seconds.\n", instanceName, pollingRate)
 	go func() {
 		for {
 			select {
@@ -63,7 +65,7 @@ func main() {
 					if err != nil {
 						log.Fatalf("Failed to start instance: %v", err)
 					}
-					fmt.Printf("Starting instance %s...\n", instanceName)
+					log.Printf("Starting instance %s...\n", instanceName)
 					// Wait for the operation to complete
 					_, err = client.ZoneOperations.Wait(projectID, zone, op.Name).Context(ctx).Do()
 					if err != nil {
@@ -81,7 +83,7 @@ func main() {
 						}
 					}
 
-					fmt.Printf("Instance %s is running at %s\n", instanceName, publicIPAddress)
+					log.Printf("Instance %s is running at %s\n", instanceName, publicIPAddress)
 
 					if notify {
 						err := sendEmail(
@@ -108,7 +110,7 @@ func main() {
 	case <-interrupt:
 		// Stop the ticker when the interrupt signal is received
 		ticker.Stop()
-		fmt.Println("Interrupt signal received. Exiting...")
+		log.Println("Interrupt signal received. Exiting...")
 	}
 }
 
@@ -122,7 +124,7 @@ func sendEmail(from, password, to, subject, body, smtpServer string, smtpPort in
 	// Send the email.
 	err := smtp.SendMail(fmt.Sprintf("%s:%d", smtpServer, smtpPort), auth, from, []string{to}, []byte(msg))
 	if err != nil {
-		fmt.Printf("Notification sent to %s", to)
+		log.Printf("Notification sent to %s", to)
 		return err
 	}
 

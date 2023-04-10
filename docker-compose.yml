@@ -2,6 +2,7 @@ version: '3'
 services:
   gcp-spot-poller:
     container_name: gcp-spot-poller
+    restart: always
     build:
       context: gcp-spot-poller
     environment:
