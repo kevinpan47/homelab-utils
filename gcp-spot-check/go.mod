@@ -1,4 +1,4 @@
-module github.com/kevinpan47/homelab-utils
+module github.com/kevinpan47/homelab-utils/gcp-spot-check
 
 go 1.19
 
